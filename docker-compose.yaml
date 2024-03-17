@@ -1,0 +1,17 @@
+## Organise Postgres and golang containe with shared volume
+version: '3'
+services:
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_DB: golang
+      POSTGRES_USER: golang
+      POSTGRES_PASSWORD: golang
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
+    external: true
