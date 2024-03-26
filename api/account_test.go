@@ -40,6 +40,15 @@ type listAccountsTestCases struct {
 	checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
 }
 
+type updateAccountTestCases struct {
+	name          string
+	accountID     int64
+	owner         string
+	currency      string
+	buildStubs    func(store *mockdb.MockStore)
+	checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
+}
+
 func TestGetAccountApi(t *testing.T) {
 	account := randomAccount()
 
@@ -119,6 +128,37 @@ func TestListAccountsApi(t *testing.T) {
 
 			url := fmt.Sprintf("/accounts?page_id=%d&page_size=%d", tc.pageID, tc.pageSize)
 			request, err := http.NewRequest("GET", url, nil)
+			require.NoError(t, err)
+
+			server.router.ServeHTTP(recorder, request)
+			tc.checkResponse(t, recorder)
+		})
+	}
+}
+
+func TestUpdateAccountApi(t *testing.T) {
+	account := randomAccount()
+
+	testCases := getUpdateAccountTestCases(account)
+
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := NewServer(store)
+			recorder := httptest.NewRecorder()
+
+			body, err := json.Marshal(updateAccountRequest{ID: tc.accountID, Owner: tc.owner, Currency: tc.currency})
+			require.NoError(t, err)
+
+			url := fmt.Sprintf("/accounts/%d", tc.accountID)
+			request, err := http.NewRequest("PATCH", url, bytes.NewReader(body))
 			require.NoError(t, err)
 
 			server.router.ServeHTTP(recorder, request)
@@ -303,6 +343,192 @@ func getListAccountsTestCases(accounts []db.Account) []listAccountsTestCases {
 					ListAccounts(gomock.Any(), gomock.Any()).
 					Times(1).
 					Return([]db.Account{}, sql.ErrConnDone)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusInternalServerError, recorder.Code)
+			},
+		},
+	}
+}
+
+func getUpdateAccountTestCases(account db.Account) []updateAccountTestCases {
+	return []updateAccountTestCases{
+		{
+			name:      "OK",
+			accountID: account.ID,
+			owner:     account.Owner + " updated",
+			currency:  account.Currency,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(account, nil)
+
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(db.UpdateAccountParams{
+						ID:       account.ID,
+						Owner:    account.Owner + " updated",
+						Currency: account.Currency,
+					})).
+					Times(1).
+					Return(db.Account{
+						ID:       account.ID,
+						Owner:    account.Owner + " updated",
+						Balance:  account.Balance,
+						Currency: account.Currency,
+					}, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+				requireBodyMatchAccount(t, recorder.Body, db.Account{
+					ID:       account.ID,
+					Owner:    account.Owner + " updated",
+					Balance:  account.Balance,
+					Currency: account.Currency,
+				})
+			},
+		},
+		{
+			name:      "Not Found",
+			accountID: account.ID,
+			owner:     account.Owner + " updated",
+			currency:  account.Currency,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(db.Account{}, sql.ErrNoRows)
+
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+		{
+			name:      "Invalid ID",
+			accountID: 0,
+			owner:     account.Owner + " updated",
+			currency:  account.Currency,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:      "Update Currency only",
+			accountID: account.ID,
+			owner:     "",
+			currency:  "EUR",
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(account, nil)
+
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(db.UpdateAccountParams{
+						ID:       account.ID,
+						Owner:    account.Owner,
+						Currency: "EUR",
+					})).
+					Times(1).
+					Return(db.Account{
+						ID:       account.ID,
+						Owner:    account.Owner,
+						Balance:  account.Balance,
+						Currency: "EUR",
+					}, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+				requireBodyMatchAccount(t, recorder.Body, db.Account{
+					ID:       account.ID,
+					Owner:    account.Owner,
+					Balance:  account.Balance,
+					Currency: "EUR",
+				})
+			},
+		},
+		{
+			name:      "Update Owner only",
+			accountID: account.ID,
+			owner:     account.Owner + " updated",
+			currency:  "",
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(account, nil)
+
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(db.UpdateAccountParams{
+						ID:       account.ID,
+						Owner:    account.Owner + " updated",
+						Currency: account.Currency,
+					})).
+					Times(1).
+					Return(db.Account{
+						ID:       account.ID,
+						Owner:    account.Owner + " updated",
+						Balance:  account.Balance,
+						Currency: account.Currency,
+					}, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+				requireBodyMatchAccount(t, recorder.Body, db.Account{
+					ID:       account.ID,
+					Owner:    account.Owner + " updated",
+					Balance:  account.Balance,
+					Currency: account.Currency,
+				})
+			},
+		},
+		{
+			name:      "Internal Error - GetAccount",
+			accountID: account.ID,
+			owner:     account.Owner + " updated",
+			currency:  account.Currency,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(db.Account{}, sql.ErrConnDone)
+
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusInternalServerError, recorder.Code)
+			},
+		},
+		{
+			name:      "Internal Error - UpdateAccount",
+			accountID: account.ID,
+			owner:     account.Owner + " updated",
+			currency:  account.Currency,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(account, nil)
+
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(db.Account{}, sql.ErrConnDone)
 			},
 			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusInternalServerError, recorder.Code)
