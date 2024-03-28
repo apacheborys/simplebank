@@ -50,7 +50,7 @@ type updateAccountTestCases struct {
 }
 
 func TestGetAccountApi(t *testing.T) {
-	account := randomAccount()
+	account := randomAccount(nil)
 
 	testCases := getGetAccountTestCases(account)
 
@@ -78,7 +78,7 @@ func TestGetAccountApi(t *testing.T) {
 }
 
 func TestCreateAccountApi(t *testing.T) {
-	account := randomAccount()
+	account := randomAccount(nil)
 
 	testCases := getCreateAccountTestCases(account)
 
@@ -109,7 +109,7 @@ func TestCreateAccountApi(t *testing.T) {
 }
 
 func TestListAccountsApi(t *testing.T) {
-	accounts := []db.Account{randomAccount(), randomAccount(), randomAccount()}
+	accounts := []db.Account{randomAccount(nil), randomAccount(nil), randomAccount(nil)}
 
 	testCases := getListAccountsTestCases(accounts)
 
@@ -137,7 +137,7 @@ func TestListAccountsApi(t *testing.T) {
 }
 
 func TestUpdateAccountApi(t *testing.T) {
-	account := randomAccount()
+	account := randomAccount(nil)
 
 	testCases := getUpdateAccountTestCases(account)
 
@@ -168,7 +168,7 @@ func TestUpdateAccountApi(t *testing.T) {
 }
 
 func TestDeleteAccountApi(t *testing.T) {
-	account := randomAccount()
+	account := randomAccount(nil)
 
 	testCases := getDeleteAccountTestCases(account)
 
@@ -656,12 +656,20 @@ func getDeleteAccountTestCases(account db.Account) []getOrDeleteAccountTestCases
 	}
 }
 
-func randomAccount() db.Account {
+func randomAccount(currency *string) db.Account {
+	var accountCurrency string
+
+	if currency == nil {
+		accountCurrency = util.RandomCurrency()
+	} else {
+		accountCurrency = *currency
+	}
+
 	return db.Account{
 		ID:       int64(util.RandomInt(1, 1000)),
 		Owner:    util.RandomOwner(),
 		Balance:  util.RandomMoney(),
-		Currency: util.RandomCurrency(),
+		Currency: accountCurrency,
 	}
 }
 

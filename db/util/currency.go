@@ -13,3 +13,15 @@ func IsSupportedCurrency(currency string) bool {
 	}
 	return false
 }
+
+func PickOtherCurrency(currency string) string {
+	switch currency {
+	case USD:
+		return EUR
+	case EUR:
+		return CAD
+	case CAD:
+		return USD
+	}
+	return ""
+}
