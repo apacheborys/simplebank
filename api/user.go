@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 )
 
-type createUsertRequest struct {
+type createUserRequest struct {
 	Username string `json:"username" binding:"required,alphanum"`
 	Password string `json:"password" binding:"required,min=6"`
 	FullName string `json:"full_name" binding:"required"`
@@ -25,7 +25,7 @@ type createUserResponse struct {
 }
 
 func (server *Server) createUser(ctx *gin.Context) {
-	var req createUsertRequest
+	var req createUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
@@ -66,4 +66,45 @@ func (server *Server) createUser(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, rsp)
+}
+
+type changeUserPasswordRequest struct {
+	Username string `uri:"username" binding:"required,alphanum"`
+	Password string `json:"password" binding:"required,min=6"`
+}
+
+func (server *Server) changePassword(ctx *gin.Context) {
+	var req changeUserPasswordRequest
+	_ = ctx.ShouldBindUri(&req)
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	hashedPassword, err := util.HashPassword(req.Password)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	arg := db.UpdateUserPasswordParams{
+		Username:       req.Username,
+		HashedPassword: hashedPassword,
+	}
+
+	_, err = server.store.UpdateUserPassword(ctx, arg)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code.Name() {
+			case "foreign_key_violation", "not_found":
+				ctx.JSON(http.StatusNotFound, errorResponse(err))
+				return
+			}
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"status": "password updated"})
 }
