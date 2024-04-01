@@ -4,16 +4,47 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	mockdb "master_class/db/mock"
 	db "master_class/db/sqlc"
 	"master_class/db/util"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+type EqCreateUserParamsMatcher struct {
+	arg      db.CreateUserParams
+	password string
+}
+
+func (e EqCreateUserParamsMatcher) Matches(x interface{}) bool {
+	arg, ok := x.(db.CreateUserParams)
+	if !ok {
+		return false
+	}
+
+	err := util.CheckPasswordHash(e.password, arg.HashedPassword)
+	if err != nil {
+		return false
+	}
+
+	e.arg.HashedPassword = arg.HashedPassword
+
+	return reflect.DeepEqual(e.arg, arg)
+}
+
+func (e EqCreateUserParamsMatcher) String() string {
+	return fmt.Sprintf("matches arg %v and password %v", e.arg, e.password)
+}
+
+func EqCreateUserParams(arg db.CreateUserParams, password string) gomock.Matcher {
+	return EqCreateUserParamsMatcher{arg: arg, password: password}
+}
 
 type createUserTestCases struct {
 	name          string
@@ -30,9 +61,9 @@ type changeUserPasswordTestCases struct {
 }
 
 func TestCreateUserAPI(t *testing.T) {
-	user := randomUser()
+	user, password := randomUser()
 
-	testCases := getCreateUserTestCases(user)
+	testCases := getCreateUserTestCases(user, password)
 
 	for i := range testCases {
 		tc := testCases[i]
@@ -60,7 +91,7 @@ func TestCreateUserAPI(t *testing.T) {
 }
 
 func TestChangeUserPasswordAPI(t *testing.T) {
-	user := randomUser()
+	user, _ := randomUser()
 
 	testCases := getChangeUserPasswordTestCases(user)
 
@@ -89,10 +120,10 @@ func TestChangeUserPasswordAPI(t *testing.T) {
 	}
 }
 
-func getCreateUserTestCases(user db.User) []createUserTestCases {
+func getCreateUserTestCases(user db.User, password string) []createUserTestCases {
 	userRequest := createUserRequest{
 		Username: user.Username,
-		Password: user.HashedPassword,
+		Password: password,
 		FullName: user.FullName,
 		Email:    user.Email,
 	}
@@ -103,7 +134,18 @@ func getCreateUserTestCases(user db.User) []createUserTestCases {
 			request: userRequest,
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().
-					CreateUser(gomock.Any(), gomock.Any()).
+					CreateUser(
+						gomock.Any(),
+						EqCreateUserParams(
+							db.CreateUserParams{
+								Username:       user.Username,
+								FullName:       user.FullName,
+								Email:          user.Email,
+								HashedPassword: user.HashedPassword,
+							},
+							password,
+						),
+					).
 					Times(1).
 					Return(user, nil)
 			},
@@ -188,13 +230,12 @@ func getChangeUserPasswordTestCases(user db.User) []changeUserPasswordTestCases 
 	}
 }
 
-func randomUser() db.User {
+func randomUser() (db.User, string) {
 	return db.User{
-		Username:       util.RandomOwner(),
-		FullName:       util.RandomOwner(),
-		Email:          util.RandomEmail(),
-		HashedPassword: util.RandomString(6),
-	}
+		Username: util.RandomOwner(),
+		FullName: util.RandomOwner(),
+		Email:    util.RandomEmail(),
+	}, util.RandomString(6)
 }
 
 func requireBodyMatchUser(t *testing.T, body string, user db.User) {
@@ -203,5 +244,5 @@ func requireBodyMatchUser(t *testing.T, body string, user db.User) {
 	require.Contains(t, body, user.Email)
 	require.Contains(t, body, user.PasswordChangedAt.String())
 	require.Contains(t, body, user.CreatedAt.String())
-	require.NotContains(t, body, user.HashedPassword)
+	require.NotContains(t, body, "\"Password\":")
 }
