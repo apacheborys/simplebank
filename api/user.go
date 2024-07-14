@@ -2,7 +2,7 @@ package api
 
 import (
 	db "master_class/db/sqlc"
-	"master_class/db/util"
+	util "master_class/util"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

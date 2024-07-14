@@ -1,7 +1,7 @@
 package token
 
 import (
-	"master_class/db/util"
+	"master_class/util"
 	"testing"
 	"time"
 

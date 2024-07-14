@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 	"log"
-	"master_class/db/util"
+	"master_class/util"
 	"os"
 	"testing"
 

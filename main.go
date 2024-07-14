@@ -5,7 +5,7 @@ import (
 	"log"
 	"master_class/api"
 	db "master_class/db/sqlc"
-	"master_class/db/util"
+	"master_class/util"
 
 	_ "github.com/lib/pq"
 )
@@ -22,7 +22,10 @@ func main() {
 	}
 
 	store := db.NewStore(conn)
-	server := api.NewServer(store)
+	server, err := api.NewServer(config, store)
+	if err != nil {
+		log.Fatal("cannot create server:", err)
+	}
 
 	err = server.Start(config.ServerAddress)
 	if err != nil {

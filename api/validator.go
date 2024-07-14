@@ -1,7 +1,7 @@
 package api
 
 import (
-	"master_class/db/util"
+	util "master_class/util"
 
 	"github.com/go-playground/validator/v10"
 )

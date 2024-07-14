@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"master_class/db/util"
+	"master_class/util"
 	"testing"
 	"time"
 

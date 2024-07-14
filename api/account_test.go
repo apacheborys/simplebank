@@ -8,7 +8,7 @@ import (
 	"io"
 	mockdb "master_class/db/mock"
 	db "master_class/db/sqlc"
-	"master_class/db/util"
+	"master_class/util"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -64,7 +64,7 @@ func TestGetAccountApi(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			tc.buildStubs(store)
 
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
 			url := fmt.Sprintf("/accounts/%d", tc.accountID)
@@ -92,7 +92,7 @@ func TestCreateAccountApi(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			tc.buildStubs(store)
 
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
 			body, err := json.Marshal(createAccountRequest{Owner: tc.owner, Currency: tc.currency})
@@ -123,7 +123,7 @@ func TestListAccountsApi(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			tc.buildStubs(store)
 
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
 			url := fmt.Sprintf("/accounts?page_id=%d&page_size=%d", tc.pageID, tc.pageSize)
@@ -151,7 +151,7 @@ func TestUpdateAccountApi(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			tc.buildStubs(store)
 
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
 			body, err := json.Marshal(updateAccountRequest{ID: tc.accountID, Owner: tc.owner, Currency: tc.currency})
@@ -182,7 +182,7 @@ func TestDeleteAccountApi(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			tc.buildStubs(store)
 
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
 			url := fmt.Sprintf("/accounts/%d", tc.accountID)

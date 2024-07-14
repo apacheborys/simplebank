@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"master_class/db/util"
+	"master_class/util"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/stretchr/testify/require"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	mockdb "master_class/db/mock"
 	db "master_class/db/sqlc"
-	"master_class/db/util"
+	"master_class/util"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,7 +43,7 @@ func TestCreateTransferApi(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			tc.buildStubs(store)
 
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
 			url := "/transfers"

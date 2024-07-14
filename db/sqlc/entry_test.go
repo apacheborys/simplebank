@@ -3,7 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
-	"master_class/db/util"
+	"master_class/util"
 	"testing"
 	"time"
 
